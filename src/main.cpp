@@ -1,4 +1,5 @@
 #include "main.h"
+#include <memory>
 
 /**
  * A callback function for LLEMU's center button.
@@ -7,13 +8,13 @@
  * "I was pressed!" and nothing.
  */
 void on_center_button() {
-	static bool pressed = false;
-	pressed = !pressed;
-	if (pressed) {
-		pros::lcd::set_text(2, "I was pressed!");
-	} else {
-		pros::lcd::clear_line(2);
-	}
+  static bool pressed = false;
+  pressed = !pressed;
+  if (pressed) {
+    pros::lcd::set_text(2, "I was pressed!");
+  } else {
+    pros::lcd::clear_line(2);
+  }
 }
 
 /**
@@ -23,10 +24,10 @@ void on_center_button() {
  * to keep execution time for this mode under a few seconds.
  */
 void initialize() {
-	pros::lcd::initialize();
-	pros::lcd::set_text(1, "Hello PROS User!");
+  pros::lcd::initialize();
+  pros::lcd::set_text(1, "Hello PROS User!");
 
-	pros::lcd::register_btn1_cb(on_center_button);
+  pros::lcd::register_btn1_cb(on_center_button);
 }
 
 /**
@@ -58,7 +59,40 @@ void competition_initialize() {}
  * will be stopped. Re-enabling the robot will restart the task, not re-start it
  * from where it left off.
  */
-void autonomous() {}
+void autonomous() {
+  std::shared_ptr<OdomChassisController> myChassis =
+      ChassisControllerBuilder()
+          .withMotors({-1, -3}, {2, 4})
+          // Green gearset, 4 in wheel diam, 11.5 in wheel track
+          .withDimensions({AbstractMotor::gearset::blue, 84.0 / 36.0},
+                          {{4_in, 11.5_in}, imev5BlueTPR})
+          .withOdometry()
+          .withGains({0.01, 0.0, 0.0}, {0.0, 0.0, 0.0}, {0.0, 0.0, 0.0})
+          .withDerivativeFilters(std::make_unique<AverageFilter<3>>(),
+                                 std::make_unique<AverageFilter<3>>(),
+                                 std::make_unique<AverageFilter<3>>())
+          .buildOdometry();
+
+  std::shared_ptr<AsyncMotionProfileController> profileController =
+      AsyncMotionProfileControllerBuilder()
+          .withLimits({
+              // TODO: limits
+              1.0, // Maximum linear velocity of the Chassis in m/s
+              2.0, // Maximum linear acceleration of the Chassis in m/s/s
+              10.0 // Maximum linear jerk of the Chassis in m/s/s/s
+          })
+          .withOutput(myChassis)
+          .buildMotionProfileController();
+
+  profileController->generatePath(
+      {{0_ft, 0_ft,
+        0_deg}, // Profile starting position, this will normally be (0, 0, 0)
+       {1_ft, 0_ft, 0_deg}}, // The next point in the profile, 3 feet forward
+      "A"                    // Profile name
+  );
+  profileController->setTarget("A");
+  profileController->waitUntilSettled();
+}
 
 /**
  * Runs the operator control code. This function will be started in its own task
@@ -74,20 +108,23 @@ void autonomous() {}
  * task, not resume it from where it left off.
  */
 void opcontrol() {
-	pros::Controller master(pros::E_CONTROLLER_MASTER);
-	pros::Motor left_mtr(1);
-	pros::Motor right_mtr(2);
+  /*
+    pros::Controller master(pros::E_CONTROLLER_MASTER);
+    pros::Motor left_mtr(1);
+    pros::Motor right_mtr(2);
 
-	while (true) {
-		pros::lcd::print(0, "%d %d %d", (pros::lcd::read_buttons() & LCD_BTN_LEFT) >> 2,
-		                 (pros::lcd::read_buttons() & LCD_BTN_CENTER) >> 1,
-		                 (pros::lcd::read_buttons() & LCD_BTN_RIGHT) >> 0);
-		int left = master.get_analog(ANALOG_LEFT_Y);
-		int right = master.get_analog(ANALOG_RIGHT_Y);
+    while (true) {
+      pros::lcd::print(0, "%d %d %d",
+                       (pros::lcd::read_buttons() & LCD_BTN_LEFT) >> 2,
+                       (pros::lcd::read_buttons() & LCD_BTN_CENTER) >> 1,
+                       (pros::lcd::read_buttons() & LCD_BTN_RIGHT) >> 0);
+      int left = master.get_analog(ANALOG_LEFT_Y);
+      int right = master.get_analog(ANALOG_RIGHT_Y);
 
-		left_mtr = left;
-		right_mtr = right;
+      left_mtr = left;
+      right_mtr = right;
 
-		pros::delay(20);
-	}
+      pros::delay(20);
+    }
+    */
 }
