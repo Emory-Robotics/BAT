@@ -76,7 +76,7 @@ void autonomous() {
       constraints,
       std::make_shared<squiggles::TankModel>(ROBOT_WIDTH, constraints));
   std::vector<squiggles::ProfilePoint> path = generator.generate(
-      {squiggles::Pose(0.0, 0.0, 0.0), squiggles::Pose(1.0, 0.0,0.0)});
+      {squiggles::Pose(0.0, 0.0, 0.0), squiggles::Pose(1.0, 1.0,0.0)});
 
   // controller for left tankdrive set
   // auto leftController =
@@ -113,8 +113,8 @@ void autonomous() {
     lcd::print(1, "%d\n",  point.wheel_velocities.size());
     //leftController->setTarget(point.wheel_velocities[0]);
     //rightController->setTarget(point.wheel_velocities[1]);
-    leftMtrs.move_velocity(point.wheel_velocities[0]*600);
-    rightMtrs.move_velocity(point.wheel_velocities[1]*600);
+    leftMtrs.move_velocity(point.wheel_velocities[0]*157);
+    rightMtrs.move_velocity(point.wheel_velocities[1]*157);
     pros::delay((point.time - currTime) * 1000);
     currTime = point.time;
   }
