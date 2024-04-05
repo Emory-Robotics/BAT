@@ -1,4 +1,6 @@
 #include "main.h"
+#include "squiggles.hpp"
+#include <cstdio>
 #include <memory>
 
 /**
@@ -8,13 +10,13 @@
  * "I was pressed!" and nothing.
  */
 void on_center_button() {
-  static bool pressed = false;
-  pressed = !pressed;
-  if (pressed) {
-    pros::lcd::set_text(2, "I was pressed!");
-  } else {
-    pros::lcd::clear_line(2);
-  }
+  // static bool pressed = false;
+  // pressed = !pressed;
+  // if (pressed) {
+  //   pros::lcd::set_text(2, "I was pressed!");
+  // } else {
+  //   pros::lcd::clear_line(2);
+  // }
 }
 
 /**
@@ -25,9 +27,9 @@ void on_center_button() {
  */
 void initialize() {
   pros::lcd::initialize();
-  pros::lcd::set_text(1, "Hello PROS User!");
+  // pros::lcd::set_text(1, "Hello PROS User!");
 
-  pros::lcd::register_btn1_cb(on_center_button);
+  // pros::lcd::register_btn1_cb(on_center_button);
 }
 
 /**
@@ -60,38 +62,68 @@ void competition_initialize() {}
  * from where it left off.
  */
 void autonomous() {
-  std::shared_ptr<OdomChassisController> myChassis =
-      ChassisControllerBuilder()
-          .withMotors({-1, -3}, {2, 4})
-          // Green gearset, 4 in wheel diam, 11.5 in wheel track
-          .withDimensions({AbstractMotor::gearset::blue, 84.0 / 36.0},
-                          {{4_in, 11.5_in}, imev5BlueTPR})
-          .withOdometry()
-          .withGains({0.01, 0.0, 0.0}, {0.0, 0.0, 0.0}, {0.0, 0.0, 0.0})
-          .withDerivativeFilters(std::make_unique<AverageFilter<3>>(),
-                                 std::make_unique<AverageFilter<3>>(),
-                                 std::make_unique<AverageFilter<3>>())
-          .buildOdometry();
+  // contstraint values
+  const double MAX_VEL = 1.0;      // in meters per second
+  const double MAX_ACCEL = 2.0;    // in meters per second per second
+  const double MAX_JERK = 10.0;    // in meters per second per second per second
+  const double ROBOT_WIDTH = 0.32; // in meters
 
-  std::shared_ptr<AsyncMotionProfileController> profileController =
-      AsyncMotionProfileControllerBuilder()
-          .withLimits({
-              // TODO: limits
-              1.0, // Maximum linear velocity of the Chassis in m/s
-              2.0, // Maximum linear acceleration of the Chassis in m/s/s
-              10.0 // Maximum linear jerk of the Chassis in m/s/s/s
-          })
-          .withOutput(myChassis)
-          .buildMotionProfileController();
+  squiggles::Constraints constraints =
+      squiggles::Constraints(MAX_VEL, MAX_ACCEL, MAX_JERK);
 
-  profileController->generatePath(
-      {{0_ft, 0_ft,
-        0_deg}, // Profile starting position, this will normally be (0, 0, 0)
-       {1_ft, 0_ft, 0_deg}}, // The next point in the profile, 3 feet forward
-      "A"                    // Profile name
-  );
-  profileController->setTarget("A");
-  profileController->waitUntilSettled();
+  // Generate path using spline
+  squiggles::SplineGenerator generator = squiggles::SplineGenerator(
+      constraints,
+      std::make_shared<squiggles::TankModel>(ROBOT_WIDTH, constraints));
+  std::vector<squiggles::ProfilePoint> path = generator.generate(
+      {squiggles::Pose(0.0, 0.0, 0.0), squiggles::Pose(1.0, 0.0,0.0)});
+
+  // controller for left tankdrive set
+  // auto leftController =
+  //     AsyncVelControllerBuilder()
+  //         .withMotor({-1, -3})
+  //         .withSensor(okapi::IntegratedEncoder(1))
+  //         .withGearset({okapi::AbstractMotor::gearset::blue, (84.0 / 36.0)})
+  //         .withGains({0.0001, 0., 0., 0.})
+  //         .withVelMath(okapi::VelMathFactory::createPtr(okapi::imev5BlueTPR *
+  //                                                       (84.0 / 36.0)))
+  //         .notParentedToCurrentTask()
+  //         .build();
+
+  // controller for right tankdrive set
+  // auto rightController =
+  //     AsyncVelControllerBuilder()
+  //         .withMotor({2, 4})
+  //         .withSensor(okapi::IntegratedEncoder(2))
+  //         .withGearset({okapi::AbstractMotor::gearset::blue, (84.0 / 36.0)})
+  //         .withGains({0.0001, 0., 0., 0.})
+  //         .withVelMath(okapi::VelMathFactory::createPtr(okapi::imev5BlueTPR *
+  //                                                       (84.0 / 36.0)))
+  //         .notParentedToCurrentTask()
+  //         .build();
+
+
+  pros::MotorGroup leftMtrs({-1,-3});
+  pros::MotorGroup rightMtrs({2,4});
+  // iterate through all points in the path and update controller velocities per
+  // time
+  double currTime = 0.0;
+  for (squiggles::ProfilePoint point : path) {
+    lcd::print(0, "%s\n", point.to_csv());
+    lcd::print(1, "%d\n",  point.wheel_velocities.size());
+    //leftController->setTarget(point.wheel_velocities[0]);
+    //rightController->setTarget(point.wheel_velocities[1]);
+    leftMtrs.move_velocity(point.wheel_velocities[0]*600);
+    rightMtrs.move_velocity(point.wheel_velocities[1]*600);
+    pros::delay((point.time - currTime) * 1000);
+    currTime = point.time;
+  }
+
+  // Stop
+  // leftController->setTarget(0);
+  // rightController->setTarget(0);
+  leftMtrs.move_velocity(0);
+  rightMtrs.move_velocity(0);
 }
 
 /**
