@@ -77,8 +77,15 @@ void autonomous() {
   squiggles::SplineGenerator generator = squiggles::SplineGenerator(
       constraints,
       std::make_shared<squiggles::TankModel>(ROBOT_WIDTH, constraints));
-  std::vector<squiggles::ProfilePoint> path = generator.generate(
-      {squiggles::Pose(0.0, 0.0, 0.0), squiggles::Pose(1.0, 1.0, 0.0)});
+  std::vector<squiggles::ProfilePoint> path = generator.generate({
+      squiggles::Pose(0.0, 0.0, 0.0),
+      squiggles::Pose(0.61, 0.61, 3.14 / 2.0),
+      squiggles::Pose(0.61, 2 * 0.61, 3.14 / 2.0),
+      squiggles::Pose(0, 3 * 0.61, 3.14),
+      squiggles::Pose(-0.61, 2 * 0.61, 3 * 3.14 / 2.0),
+      squiggles::Pose(-0.61, 0.61, 3 * 3.14 / 2.0),
+      squiggles::Pose(0, 0, 0),
+  });
 
   pros::MotorGroup leftMtrs({pros::Motor(-1, pros::E_MOTOR_GEAR_BLUE),
                              pros::Motor(-3, pros::E_MOTOR_GEAR_BLUE)});
