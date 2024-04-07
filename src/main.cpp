@@ -1,4 +1,6 @@
 #include "main.h"
+#include "pros/motors.h"
+#include "pros/motors.hpp"
 #include "squiggles.hpp"
 #include <cstdio>
 #include <memory>
@@ -63,10 +65,10 @@ void competition_initialize() {}
  */
 void autonomous() {
   // contstraint values
-  const double MAX_VEL = 1.0;      // in meters per second
+  const double MAX_VEL = 1.355;    // in meters per second
   const double MAX_ACCEL = 2.0;    // in meters per second per second
   const double MAX_JERK = 10.0;    // in meters per second per second per second
-  const double ROBOT_WIDTH = 0.32; // in meters
+  const double ROBOT_WIDTH = 0.27; // in meters
 
   squiggles::Constraints constraints =
       squiggles::Constraints(MAX_VEL, MAX_ACCEL, MAX_JERK);
@@ -76,52 +78,27 @@ void autonomous() {
       constraints,
       std::make_shared<squiggles::TankModel>(ROBOT_WIDTH, constraints));
   std::vector<squiggles::ProfilePoint> path = generator.generate(
-      {squiggles::Pose(0.0, 0.0, 0.0), squiggles::Pose(1.0, 1.0,0.0)});
+      {squiggles::Pose(0.0, 0.0, 0.0), squiggles::Pose(1.0, 1.0, 0.0)});
 
-  // controller for left tankdrive set
-  // auto leftController =
-  //     AsyncVelControllerBuilder()
-  //         .withMotor({-1, -3})
-  //         .withSensor(okapi::IntegratedEncoder(1))
-  //         .withGearset({okapi::AbstractMotor::gearset::blue, (84.0 / 36.0)})
-  //         .withGains({0.0001, 0., 0., 0.})
-  //         .withVelMath(okapi::VelMathFactory::createPtr(okapi::imev5BlueTPR *
-  //                                                       (84.0 / 36.0)))
-  //         .notParentedToCurrentTask()
-  //         .build();
-
-  // controller for right tankdrive set
-  // auto rightController =
-  //     AsyncVelControllerBuilder()
-  //         .withMotor({2, 4})
-  //         .withSensor(okapi::IntegratedEncoder(2))
-  //         .withGearset({okapi::AbstractMotor::gearset::blue, (84.0 / 36.0)})
-  //         .withGains({0.0001, 0., 0., 0.})
-  //         .withVelMath(okapi::VelMathFactory::createPtr(okapi::imev5BlueTPR *
-  //                                                       (84.0 / 36.0)))
-  //         .notParentedToCurrentTask()
-  //         .build();
-
-
-  pros::MotorGroup leftMtrs({-1,-3});
-  pros::MotorGroup rightMtrs({2,4});
+  pros::MotorGroup leftMtrs({pros::Motor(-1, pros::E_MOTOR_GEAR_BLUE),
+                             pros::Motor(-3, pros::E_MOTOR_GEAR_BLUE)});
+  pros::MotorGroup rightMtrs({pros::Motor(2, pros::E_MOTOR_GEAR_BLUE),
+                              pros::Motor(4, pros::E_MOTOR_GEAR_BLUE)});
   // iterate through all points in the path and update controller velocities per
   // time
   double currTime = 0.0;
   for (squiggles::ProfilePoint point : path) {
     lcd::print(0, "%s\n", point.to_csv());
-    lcd::print(1, "%d\n",  point.wheel_velocities.size());
-    //leftController->setTarget(point.wheel_velocities[0]);
-    //rightController->setTarget(point.wheel_velocities[1]);
-    leftMtrs.move_velocity(point.wheel_velocities[0]*157);
-    rightMtrs.move_velocity(point.wheel_velocities[1]*157);
+    lcd::print(1, "%d\n", point.wheel_velocities.size());
+    leftMtrs.move_velocity(point.wheel_velocities[0] * 39.3701 * 60 / 12.56 *
+                           84 / 36);
+    rightMtrs.move_velocity(point.wheel_velocities[1] * 39.3701 * 60 / 12.56 *
+                            84 / 36);
     pros::delay((point.time - currTime) * 1000);
     currTime = point.time;
   }
 
   // Stop
-  // leftController->setTarget(0);
-  // rightController->setTarget(0);
   leftMtrs.move_velocity(0);
   rightMtrs.move_velocity(0);
 }
